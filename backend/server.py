@@ -544,9 +544,17 @@ async def get_checkout_status(session_id: str, request: Request):
         currency = status.currency
         metadata = status.metadata
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Stripe status retrieval unavailable (%s) — demo fallback", exc)
-        new_payment_status = "paid"
-        new_status = "complete"
+        # Demo-only fallback: the sk_test_emergent proxy can create sessions but cannot
+        # retrieve them. To keep the booking flow demoable, we treat the redirect-back
+        # as paid. Behind a real Stripe account key we surface 502 instead so a real
+        # failure never silently confirms a booking.
+        if os.environ.get("STRIPE_API_KEY") == "sk_test_emergent":
+            logger.warning("Stripe status retrieval unavailable (%s) — demo fallback", exc)
+            new_payment_status = "paid"
+            new_status = "complete"
+        else:
+            logger.exception("Stripe status retrieval failed: %s", exc)
+            raise HTTPException(status_code=502, detail="Could not retrieve payment status") from exc
 
     await db.payment_transactions.update_one(
         {"session_id": session_id},
