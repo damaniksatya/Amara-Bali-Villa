@@ -1,0 +1,47 @@
+{
+  "summary": "Iteration 2 — concierge booking refactor verified end-to-end. 25/25 backend pytest cases pass against the live preview URL, covering JWT login, /auth/me guard, public booking-request creation with server-derived pricing + email/capacity/date validation, public booking GET strips admin_note, admin list/filter/stats, status PATCH (incl. invalid rejection), payment-link issuance flipping status to awaiting_payment, /pay/{id} 403/200 gating, /pay/{id}/checkout server-side amount, and Stripe-status fallback marking booking paid + idempotent. Frontend critical flows all pass: Villa Detail 'Request Booking' CTA → /booking/villa-suara-canggu, single-page request form with date popover/guests select/contact fields submits and redirects to /booking/request-received/{id} with elegant 'Pending review' card; /admin (logged-out) redirects to /admin/login; admin login with admin@amarabali.co/amara2026 lands on /admin showing stats (Total/Pending/Confirmed/Awaiting Payment/Paid/Revenue) + tabs + search + per-row action buttons; Confirm + Send Payment Link both work with toasts; /pay/{id} renders booking summary with $3,161.40 total, Stripe verbiage, Pay button which redirects to a real checkout.stripe.com session URL; /booking/success?session_id=… polls and renders 'Reservation Confirmed' card with WhatsApp CTA + booking ID + dates + total.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/admin/bookings/{id}/payment-link", "issue": "When request omits Origin header, the generated pay_url falls back to FastAPI base_url which in this environment is the internal http://127.0.0.1:8001 URL. Public callers always send Origin so this is hidden, but a mis-proxied admin tool would generate a non-public link. Suggest hard-coding to REACT_APP_BACKEND_URL/PUBLIC_BASE_URL env."},
+      {"endpoint": "GET /api/payments/checkout/status/{session_id}", "issue": "Demo fallback always marks status as paid on any Stripe retrieve exception (network blip, 500, etc.). Acceptable per spec but worth gating behind STRIPE_API_KEY==sk_test_emergent so production deploys never silently confirm a failed payment."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AdminDashboard table action row", "issue": "Most interactive controls (Confirm/Reject/Send Payment Link/Copy Link, status tabs, stats cards, table rows, search input) lack data-testid attributes — selectors must rely on text matching which is brittle for i18n.", "selector": "button:has-text(...)", "priority": "MEDIUM"},
+      {"component": "BookingRequest form", "issue": "Inputs (full_name, email, phone, special_requests) and the date popover trigger have no data-testid; tests have to rely on positional input.nth() which is fragile.", "selector": "input.nth(0..2)", "priority": "MEDIUM"},
+      {"component": "Header during /admin", "issue": "Site-wide 'Book Now' CTA still shown on /admin pages (concierge console). Probably should be hidden when admin is signed in.", "selector": "header a:has-text('Book Now')", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Pay landing & Booking Success", "issues": ["Layouts look polished and on-brand; Stripe verbiage and ShieldCheck pattern present. No contrast issues observed."]},
+      {"screen": "Admin Dashboard", "issues": ["Stats cards + tabs render cleanly; Revenue card highlighted in dark variant. Toast 'Payment link generated and copied to clipboard.' confirms send action."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Add data-testid attributes across AdminDashboard (action buttons, tabs, stat cards, table rows) and BookingRequest form fields + date popover trigger.",
+    "Gate Stripe demo fallback in /api/payments/checkout/status/{session_id} so the auto-mark-as-paid only happens when STRIPE_API_KEY=='sk_test_emergent'; otherwise return pending and surface a 502.",
+    "Use a configured PUBLIC_BASE_URL for admin payment-link generation instead of relying on request Origin/base_url.",
+    "Hide top-nav 'Book Now' on /admin and /admin/login routes."
+  ],
+  "critical_code_review_comments": [
+    "server.py:332 — create_booking_request silently coerces guests<1 OR >capacity into a 400 only when guests>capacity; guests<1 also rejected (good) but Pydantic should use conint(ge=1) for stricter typing.",
+    "server.py:475 — pay_create_checkout uses booking['total'] server-side (correct), but does not also validate origin_url is from an allowed host list — open redirect vector if origin_url is later reflected anywhere.",
+    "server.py:548 — Stripe fallback unconditionally marks demo bookings as paid; good for demo, dangerous for prod (see action item).",
+    "auth.py:56 — require_admin reads Authorization header on every request; consider FastAPI Depends + OAuth2PasswordBearer for cleaner DI and OpenAPI docs.",
+    "Frontend — most action buttons lack data-testid attributes. Reduces test stability and was already flagged in iteration_1; still outstanding."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (25/25)", "frontend": "100% on tested flows"},
+  "test_credentials": "Admin: admin@amarabali.co / amara2026 (from /app/memory/test_credentials.md and backend/.env). Stripe test card 4242 4242 4242 4242 if completing checkout (not required since demo fallback marks paid).",
+  "seed_data_creation": "Tests created TEST_-prefixed booking records (TEST_Sophia, TEST_UI_Sophia) and one TEST_Contact / TEST_newsletter from previous iteration. Admin dashboard at the time of test showed 13 total bookings (mix of pending/confirmed/awaiting_payment/paid). Cleanup not required for demo data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest at /app/backend/tests/backend_test.py is now aligned with the concierge model (POST /api/bookings → status='pending'; admin /api/admin/bookings + /api/admin/stats + PATCH + /payment-link; public /api/pay/{id} + /api/pay/{id}/checkout; legacy /api/payments/checkout/session is REMOVED). Stripe status retrieval in /api/payments/checkout/status/{session_id} uses the Emergent demo fallback to paid because sk_test_emergent only supports session creation through the proxy. Frontend pages verified: VillaDetail, BookingRequest, BookingRequestSuccess, AdminLogin, AdminDashboard, PayBooking, BookingSuccess. All routes work end-to-end. Admin token persisted to localStorage and axios interceptor attaches Bearer header (api.js). Tested with REACT_APP_BACKEND_URL=https://bali-resort-rentals.preview.emergentagent.com.",
+  "rca of the issue": "No new bugs blocking core flows. Minor risk: demo Stripe fallback unconditionally marks bookings as paid — fine for sk_test_emergent, but env-gate before prod."
+}

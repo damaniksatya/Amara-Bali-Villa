@@ -89,7 +89,10 @@ export default function Footer() {
 
         <div className="mt-16 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-white/40">
           <p>© {new Date().getFullYear()} Amara Bali Villas. All rights reserved.</p>
-          <p>Crafted with care in Bali — for stays remembered.</p>
+          <div className="flex items-center gap-6">
+            <p>Crafted with care in Bali — for stays remembered.</p>
+            <Link to="/admin/login" data-testid="footer-admin-link" className="hover:text-[#D4AF37] transition-colors">Concierge Login</Link>
+          </div>
         </div>
       </div>
     </footer>

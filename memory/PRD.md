@@ -1,72 +1,68 @@
 # Amara Bali Villas — Product Requirements (PRD)
 
 ## Original Problem Statement
-Build a premium luxury Bali villa booking website with tropical-luxury aesthetic: elegant
-serif headings, sand/beige/charcoal palette with soft gold accents, cinematic photography,
-Airbnb-style usability. Pages: Home (hero with search, categories, destinations, featured
-villas, why-us, testimonials, blog), Villa Listing with filters, Villa Detail (gallery, amenities,
-calendar, map, related), 4-step Booking flow with Stripe, Email automation,
-About, Experiences, Blog, Contact.
+Premium luxury Bali villa booking website with tropical-luxury aesthetic and a
+**concierge-style booking-REQUEST flow** (no instant booking). Guests submit a
+request, admin manually reviews and sends a Stripe payment link, guest completes
+payment, admin sees status update.
 
 ## User Choices
-- User skipped clarifications. Defaults applied:
-  - Stripe: real test integration (key `sk_test_emergent`)
-  - Email automation: MOCKED (logs to backend logs)
-  - Auth: not implemented — guest bookings only
-  - Admin dashboard: not implemented
-  - Design: design agent decisions (Cormorant Garamond + Outfit, gold/charcoal/beige palette)
+- Stripe: real test integration (`sk_test_emergent`) via emergentintegrations
+- Email automation: MOCKED — booking-request, payment-link, and final-confirmation
+  emails are written to backend logs only
+- Auth: simple JWT bearer-token, single seeded admin (no public registration)
+- Design: Cormorant Garamond + Outfit, charcoal/sand/beige with soft gold
 
 ## User Personas
-- Couples planning a Bali honeymoon
-- Multi-generational families seeking a private estate
-- Wedding parties (Villa Melati category)
-- Wellness retreat travellers (Ubud / Padma)
+- **Guest** — submits booking requests, receives concierge confirmation, pays via Stripe link
+- **Concierge admin** — reviews requests, confirms/cancels, generates payment links
 
-## Core Requirements (static)
-- Premium hospitality aesthetic with serif headings, generous spacing, rounded-2xl images
-- Sticky transparent navbar over hero, opaque on scroll
-- Search form (destination, dates, bedrooms) drives filtered villa listing
-- Villa detail with gallery, amenities, availability calendar, map, sticky reserve widget, related villas
-- 4-step booking: Dates → Summary → Guest details → Stripe payment → Confirmation
-- Stripe checkout via Emergent integration with `payment_transactions` collection and polling
-- Mock email confirmations (guest + admin) on successful booking
-- Editorial blog with category filter and search; About; Experiences; Contact with map + WhatsApp
+## Core Requirements
+- Cinematic Bali aesthetic, sticky transparent navbar, generous spacing
+- Single-page Booking REQUEST form (replaces 4-step instant flow)
+- Elegant request-received page with booking ID and "what happens next"
+- Admin dashboard: stats, tabbed status filters, search, per-row actions
+  (Confirm / Reject / Send payment link / Copy link)
+- Public `/pay/:id` landing page (only available after admin marks awaiting_payment)
+- Stripe-hosted secure checkout from `/pay/:id`
+- Final confirmation page after payment with booking ID and check-in info
 
-## What's Been Implemented (2026-02)
-- Backend (`/app/backend/server.py`): villas, categories, destinations, experiences, testimonials,
-  blog, bookings, Stripe checkout session + status polling (with Emergent test-key fallback so
-  status retrieval doesn't 500 in this environment), webhook, contact, newsletter. Auto-seeded
-  via `seed_data.py` (8 villas, 6 categories, 4 destinations, 8 experiences, 4 testimonials,
-  6 blog posts).
-- Stripe security: amount comes from server-side booking record only; idempotent payment
-  finalisation; `payment_transactions` collection.
+## What's Been Implemented (2026-02 → 2026-05)
+- Backend (`/app/backend/server.py` + `auth.py`):
+  - Public catalog: villas, categories, destinations, experiences, testimonials, blog
+  - Booking-request lifecycle (pending → confirmed → awaiting_payment → paid / cancelled)
+  - Stripe checkout via emergentintegrations + idempotent payment finalisation +
+    demo fallback for the Emergent test-proxy retrieve limitation
+  - Admin endpoints: list/update bookings, generate payment link, stats
+  - JWT bearer auth with bcrypt-hashed admin (single seed)
+  - Mocked emails: request received, payment link, final confirmation
+  - Validation: check_out > check_in, guests within villa capacity
 - Frontend (`/app/frontend/src/`):
-  - Pages: Home, Villas, VillaDetail, Booking (4-step shadcn Calendar), BookingSuccess, About,
-    Experiences, Blog, BlogDetail, Contact
-  - Components: Navbar (sticky/transparent), Footer (newsletter), VillaCard, SearchForm, Layout,
-    floating WhatsApp, sonner toasts
-  - Design: Cormorant Garamond serif headings, Outfit body, gold #D4AF37 + charcoal #1A1A1A on
-    beige #F4F1EA + sand #E6D5C3
-- Validation: check_out > check_in, guests within villa capacity
-- Mocked email automation logs each booking to backend logs
+  - Public pages: Home, Villas, VillaDetail, BookingRequest, BookingRequestSuccess,
+    PayBooking, BookingSuccess, About, Experiences, Blog, BlogDetail, Contact
+  - Admin: AdminLogin (split-screen), AdminDashboard (stats + tabbed table + actions)
+  - Components: Navbar (sticky transparent on home), Footer (with Concierge Login link),
+    SearchForm, VillaCard, sonner toasts, floating WhatsApp
+  - Tailwind palette: charcoal #1A1A1A, gold #D4AF37, beige #F4F1EA, sand #E6D5C3
+  - JWT token persisted in localStorage; axios interceptor attaches Bearer header
+
+## Mocked Integrations (highlight)
+- **Email automation is MOCKED** — booking-request, payment-link and confirmation
+  emails are logged to backend logs only (`mock_send_*` in server.py).
+  Replace with Resend / SendGrid in production.
+- **Stripe checkout status retrieval** falls back to "paid" when the Emergent test
+  proxy returns "No such session" (limitation of `sk_test_emergent`). Use a real
+  Stripe key in production to drop the fallback.
 
 ## Prioritised Backlog
-- P1: Real email provider integration (Resend / SendGrid) for guest + admin confirmations
-- P1: User accounts + wishlist persistence (currently in-memory hearts)
-- P1: Admin dashboard for villas, bookings, blog, payments
-- P2: Real Stripe key on user's account (drop the demo fallback in checkout status)
-- P2: Calendar availability blocking (currently any date is bookable)
-- P2: Multi-currency support and IDR conversion display
-- P3: Multi-language (EN / ID / FR / RU)
-- P3: Trip-builder bundling experiences with villa stay
+- P1: Real email provider (Resend / SendGrid) replacing the mock
+- P1: Sortable/exportable bookings (CSV) and per-guest history view
+- P1: SMS / WhatsApp delivery of payment link from admin (Twilio)
+- P2: Multi-admin support (more than one concierge), audit log of status changes
+- P2: Calendar availability blocking once a booking is paid
+- P2: Guest accounts + wishlist persistence (currently in-memory hearts)
+- P3: Multi-currency display (IDR/EUR), multi-language (EN/ID/FR/RU)
+- P3: Trip-builder bundling experiences into the booking request
 
 ## Test Credentials
 See `/app/memory/test_credentials.md`.
-
-## Mocked Integrations (highlight)
-- **Email automation is MOCKED** — booking confirmation + admin alerts are written to backend
-  logs only (`mock_send_emails` in server.py). No SMTP connection. To go live, replace with
-  Resend / SendGrid.
-- **Stripe checkout status retrieval** falls back to "paid" when the Emergent test proxy returns
-  "No such checkout.session" — this is a documented limitation of the `sk_test_emergent` test
-  key. With a real Stripe account key it will work natively.

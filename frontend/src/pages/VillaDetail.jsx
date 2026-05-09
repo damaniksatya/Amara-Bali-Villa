@@ -43,12 +43,10 @@ export default function VillaDetail() {
   const total = subtotal + cleaningFee + taxes;
 
   const proceed = () => {
-    if (!range.from || !range.to) return;
-    const params = new URLSearchParams({
-      check_in: format(range.from, "yyyy-MM-dd"),
-      check_out: format(range.to, "yyyy-MM-dd"),
-      guests: String(guests),
-    });
+    const params = new URLSearchParams();
+    if (range.from) params.set("check_in", format(range.from, "yyyy-MM-dd"));
+    if (range.to) params.set("check_out", format(range.to, "yyyy-MM-dd"));
+    params.set("guests", String(guests));
     navigate(`/booking/${villa.slug}?${params.toString()}`);
   };
 
@@ -219,12 +217,11 @@ export default function VillaDetail() {
             <button
               data-testid="widget-reserve"
               onClick={proceed}
-              disabled={!range.from || !range.to}
-              className="mt-6 w-full btn-gold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-6 w-full btn-gold"
             >
-              Reserve
+              Request Booking
             </button>
-            <p className="mt-3 text-xs text-center text-[#1A1A1A]/50">You won't be charged yet</p>
+            <p className="mt-3 text-xs text-center text-[#1A1A1A]/50">No payment yet — concierge confirmation first</p>
           </div>
         </aside>
       </div>
