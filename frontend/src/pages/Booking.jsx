@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { format, differenceInCalendarDays } from "date-fns";
-import { Check, ChevronLeft, Loader2, Lock } from "lucide-react";
+import { Check, ChevronLeft, Loader2, Lock, Calendar as CalendarIcon } from "lucide-react";
 import { fetchVilla, createBooking, createCheckoutSession } from "../lib/api";
 import { toast } from "sonner";
+import { Calendar } from "../components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 
 const STEPS = ["Dates & Guests", "Review Summary", "Guest Details", "Payment"];
 
@@ -16,9 +18,13 @@ export default function Booking() {
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
 
-  const [checkIn, setCheckIn] = useState(params.get("check_in") || "");
-  const [checkOut, setCheckOut] = useState(params.get("check_out") || "");
+  const initFrom = params.get("check_in") ? new Date(params.get("check_in")) : undefined;
+  const initTo = params.get("check_out") ? new Date(params.get("check_out")) : undefined;
+  const [range, setRange] = useState({ from: initFrom, to: initTo });
   const [guests, setGuests] = useState(parseInt(params.get("guests") || "2"));
+
+  const checkIn = range.from ? format(range.from, "yyyy-MM-dd") : "";
+  const checkOut = range.to ? format(range.to, "yyyy-MM-dd") : "";
 
   const [form, setForm] = useState({
     full_name: "",
@@ -34,7 +40,7 @@ export default function Booking() {
   if (!villa) return <div className="pt-40 container-luxe">Loading…</div>;
 
   const nights =
-    checkIn && checkOut ? Math.max(1, differenceInCalendarDays(new Date(checkOut), new Date(checkIn))) : 0;
+    range.from && range.to ? Math.max(1, differenceInCalendarDays(range.to, range.from)) : 0;
   const subtotal = nights * villa.price_per_night;
   const cleaningFee = 120;
   const taxes = Math.round(subtotal * 0.11 * 100) / 100;
@@ -304,14 +310,6 @@ function Field({ label, children }) {
 }
 
 function Row({ label, value, bold }) {
-  return (
-    <div className={`flex justify-between ${bold ? "font-medium" : "text-[#1A1A1A]/70"}`}>
-      <span>{label}</span>
-      <span className={bold ? "text-[#1A1A1A]" : ""}>{value}</span>
-    </div>
-  );
-}
- label, value, bold }) {
   return (
     <div className={`flex justify-between ${bold ? "font-medium" : "text-[#1A1A1A]/70"}`}>
       <span>{label}</span>
