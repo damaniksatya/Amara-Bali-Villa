@@ -41,7 +41,7 @@ export default function Booking() {
   const total = subtotal + cleaningFee + taxes;
 
   const canNext = () => {
-    if (step === 0) return checkIn && checkOut && guests > 0 && nights >= 1;
+    if (step === 0) return range.from && range.to && guests > 0 && nights >= 1;
     if (step === 1) return true;
     if (step === 2) return form.full_name && form.email && form.phone;
     return true;
@@ -107,29 +107,38 @@ export default function Booking() {
                 <div data-testid="booking-step-dates">
                   <h2 className="font-serif text-4xl">When are you coming?</h2>
                   <p className="mt-3 text-[#1A1A1A]/60">Pick check-in, check-out, and party size.</p>
-                  <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <Field label="Check-in">
-                      <input
-                        type="date"
-                        data-testid="input-check-in"
-                        min={format(new Date(), "yyyy-MM-dd")}
-                        value={checkIn}
-                        onChange={(e) => setCheckIn(e.target.value)}
-                        className="luxe-input"
-                      />
-                    </Field>
-                    <Field label="Check-out">
-                      <input
-                        type="date"
-                        data-testid="input-check-out"
-                        min={checkIn || format(new Date(), "yyyy-MM-dd")}
-                        value={checkOut}
-                        onChange={(e) => setCheckOut(e.target.value)}
-                        className="luxe-input"
-                      />
+                  <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field label="Stay dates">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            data-testid="input-dates"
+                            className="luxe-input text-left flex items-center gap-3"
+                          >
+                            <CalendarIcon size={14} className="text-[#D4AF37]" />
+                            {range.from
+                              ? range.to
+                                ? `${format(range.from, "MMM d")} – ${format(range.to, "MMM d, yyyy")}`
+                                : `${format(range.from, "MMM d, yyyy")} – select check-out`
+                              : "Select dates"}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="range"
+                            numberOfMonths={2}
+                            selected={range}
+                            onSelect={(v) => setRange(v || { from: undefined, to: undefined })}
+                            disabled={{ before: new Date() }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </Field>
                     <Field label="Guests">
                       <select
+                        name="guests"
                         data-testid="input-guests"
                         value={guests}
                         onChange={(e) => setGuests(parseInt(e.target.value))}
@@ -141,6 +150,11 @@ export default function Booking() {
                       </select>
                     </Field>
                   </div>
+                  {nights > 0 && (
+                    <p className="mt-6 text-sm text-[#1A1A1A]/60">
+                      {nights} {nights === 1 ? "night" : "nights"} · ${(nights * villa.price_per_night).toLocaleString()} subtotal
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -169,18 +183,19 @@ export default function Booking() {
                   <p className="mt-3 text-[#1A1A1A]/60">We'll use these to personalise your stay.</p>
                   <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field label="Full name">
-                      <input data-testid="input-full-name" type="text" required value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="luxe-input" />
+                      <input name="full_name" autoComplete="name" data-testid="input-full-name" type="text" required value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="luxe-input" />
                     </Field>
                     <Field label="Email">
-                      <input data-testid="input-email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="luxe-input" />
+                      <input name="email" autoComplete="email" data-testid="input-email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="luxe-input" />
                     </Field>
                     <Field label="Phone">
-                      <input data-testid="input-phone" type="tel" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="luxe-input" />
+                      <input name="phone" autoComplete="tel" data-testid="input-phone" type="tel" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="luxe-input" />
                     </Field>
                   </div>
                   <div className="mt-4">
                     <Field label="Special requests">
                       <textarea
+                        name="special_requests"
                         data-testid="input-special-requests"
                         rows={4}
                         value={form.special_requests}
@@ -289,6 +304,14 @@ function Field({ label, children }) {
 }
 
 function Row({ label, value, bold }) {
+  return (
+    <div className={`flex justify-between ${bold ? "font-medium" : "text-[#1A1A1A]/70"}`}>
+      <span>{label}</span>
+      <span className={bold ? "text-[#1A1A1A]" : ""}>{value}</span>
+    </div>
+  );
+}
+ label, value, bold }) {
   return (
     <div className={`flex justify-between ${bold ? "font-medium" : "text-[#1A1A1A]/70"}`}>
       <span>{label}</span>

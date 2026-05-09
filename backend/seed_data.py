@@ -105,10 +105,10 @@ VILLAS = [
         "description": "Designed exclusively for two, Villa Cinta is perched on the limestone cliffs of Jimbaran with sweeping views of the bay. The single bedroom suite opens onto a private plunge pool and outdoor rain-shower. Floating breakfasts, candlelit dinners on the rocks, and a couple's spa ritual are included in your stay.",
         "amenities": ["Private Plunge Pool", "Ocean Cliff View", "Floating Breakfast", "Couple's Spa", "Private Chef", "WiFi", "Outdoor Rain Shower"],
         "images": [
-            "https://images.unsplash.com/photo-1721050739056-fb12f9663f23?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+            "https://images.unsplash.com/photo-1540541338287-41700207dee6?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
             "https://images.unsplash.com/photo-1728051104796-a8c0f667cd90?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
             "https://images.unsplash.com/photo-1582719508461-905c673771fd?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
-            "https://images.unsplash.com/photo-1540541338287-41700207dee6?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+            "https://images.unsplash.com/photo-1521783593447-5702b9bfd267?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
         ],
         "lat": -8.7900,
         "lng": 115.1600,
