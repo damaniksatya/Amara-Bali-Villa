@@ -1,0 +1,85 @@
+{
+  "summary": "First-iteration full backend + frontend testing of Amara Bali Villas. 25/26 backend tests pass. Frontend Home/Villas/Detail/Booking flow/Blog/Contact all render and integrate correctly with backend. One critical Stripe issue discovered: GET /api/payments/checkout/status/{id} returns 500 because emergentintegrations performs status retrieval through the real Stripe SDK, but the configured key sk_test_emergent only works for session creation through the Emergent gateway - real Stripe responds 'No such checkout.session'. This will break the BookingSuccess polling page in the user flow.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/payments/checkout/status/{session_id}",
+        "issue": "Returns 500 for valid sessions just created. Underlying CheckoutError: 'No such checkout.session: cs_test_...'. emergentintegrations.get_checkout_status() calls stripe.checkout.Session.retrieve directly with STRIPE_API_KEY, but session was created via the Emergent stripe proxy. This makes BookingSuccess page polling fail and prevents confirmation UI from rendering.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "GET /api/payments/checkout/status/{session_id}",
+        "issue": "On Stripe lookup failure should return 502/503 with structured payload rather than uncaught 500 (server.py line 421 should wrap in try/except)."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Booking step 1 (Dates & Guests)",
+        "issue": "Uses native HTML <input type='date'> instead of a styled date picker (e.g. shadcn Calendar). Looks inconsistent with the luxury brand aesthetic.",
+        "selector": "input[type='date']",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "Booking step 3 form inputs",
+        "issue": "Inputs (full_name, email, phone) have no name/id/data-testid attributes - hard to test and breaks form autofill.",
+        "selector": "form input",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "Villa card - Villa Cinta",
+        "issue": "Cover image not loading on the Villas listing card (image area is blank).",
+        "selector": "img[alt='Villa Cinta']",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Booking Success / payment confirmation",
+        "issue": "BookingSuccess page polls /api/payments/checkout/status which currently 500s, so the confirmation card with booking ID/dates/totals will never render after a real Stripe redirect. Root cause is the backend Stripe key/proxy mismatch above.",
+        "affected_selectors": ["/booking/success page"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Global",
+        "issues": [
+          "Most interactive elements are missing data-testid attributes (Reserve button, filter pills, booking step buttons, contact form, newsletter), reducing test stability.",
+          "Booking flow uses browser-native date picker - replace with shadcn Calendar / range picker for consistency."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix /api/payments/checkout/status: either route status retrieval through the Emergent stripe proxy (use the same emergentintegrations primitive used for session creation) or wrap stripe.get_checkout_status in try/except and surface a 'pending' status until webhook arrives. Without this, the entire booking confirmation flow is broken end-to-end.",
+    "Add data-testid attributes on Reserve, Continue, Pay Now, filter pills, booking inputs, contact form fields, and newsletter subscribe.",
+    "Replace native date inputs in Booking step 1 with a styled calendar component (shadcn Calendar) and align with the luxury brand.",
+    "Add name attributes on booking guest-detail inputs (full_name, email, phone) so autofill and tests work.",
+    "Investigate broken Villa Cinta image (Unsplash URL returns blank in the listing card)."
+  ],
+  "critical_code_review_comments": [
+    "server.py:421 - get_checkout_status does not catch CheckoutError, so any Stripe lookup failure becomes a 500. This is the root cause of the booking-success regression.",
+    "server.py:260 - destinations.villa_count uses regex on first word of name; works for current data but fragile (e.g. would miss 'Ubud' if a destination were renamed 'Greater Ubud'). Prefer storing a slug/location key on each destination doc.",
+    "server.py:138 - calculate_pricing silently coerces nights<1 to 1; should reject invalid ranges with 400.",
+    "Booking model lacks server-side validation that check_out > check_in and that guests <= villa.guests capacity.",
+    "No rate limiting on /api/contact, /api/newsletter or /api/bookings - trivially abusable."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/__init__.py"
+  ],
+  "success_rate": {"backend": "96% (25/26)", "frontend": "85%"},
+  "test_credentials": "None required - guest checkout, no auth.",
+  "seed_data_creation": "Tests created TEST_-prefixed booking, contact, newsletter records; not cleaned up automatically (acceptable - small volume, prefixed for easy purge).",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend pytest at /app/backend/tests/backend_test.py covers root, villas (list/filter/detail/related/404), categories, destinations (with villa_count), experiences, testimonials, blog (list/category/search/detail), bookings (create with pricing math + GET + invalid villa), Stripe checkout session + security (server-side amount), checkout status poll (currently FAILING due to backend bug), checkout status 404, contact, newsletter. Frontend pages verified visually: Home (hero + search), Villas listing (8 cards + filters), Villa detail (gallery + Reserve + sticky widget showing $685 x 4 nights = $2740 + $120 + $301.4 = $3,161.4), Booking flow (4-step stepper, step1 dates/guests, navigation works, Pay Now triggers /api/payments/checkout/session POST and redirects to Stripe), Blog list (6 cards), Contact (form + Google Map iframe + contact items). Public URL: https://bali-resort-rentals.preview.emergentagent.com",
+  "rca of the issue": "Stripe checkout status 500 RCA: backend uses STRIPE_API_KEY=sk_test_emergent which is an Emergent-issued placeholder. emergentintegrations.create_checkout_session routes through the Emergent payment proxy and returns a session_id of the form cs_test_*, but emergentintegrations.get_checkout_status (line 191 of checkout.py) calls stripe.checkout.Session.retrieve directly against api.stripe.com using the same key. Real Stripe rejects the key/session combination with 'No such checkout.session', the lib re-raises CheckoutError, and the FastAPI handler doesn't catch it -> 500. Reproduction: POST /api/bookings, POST /api/payments/checkout/session, then immediately GET /api/payments/checkout/status/{session_id} -> 500. Mitigation: (a) use the Emergent integration's matching status method (if available), or (b) catch CheckoutError and return {payment_status:'pending', status:'open'} so the BookingSuccess UI keeps polling without surfacing 500."
+}
