@@ -20,7 +20,10 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def get_jwt_secret() -> str:
-    return os.environ["JWT_SECRET"]
+    secret = os.environ.get("JWT_SECRET")
+    if not secret:
+        raise RuntimeError("JWT_SECRET environment variable is not set")
+    return secret
 
 
 def create_access_token(user_id: str, email: str, role: str) -> str:

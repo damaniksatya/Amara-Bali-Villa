@@ -26,11 +26,25 @@ from auth import (
 )
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / ".env")
+load_dotenv(dotenv_path=str(ROOT_DIR / ".env"))
 
-mongo_url = os.environ["MONGO_URL"]
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ["DB_NAME"]]
+
+def _require_env_vars(*names: str) -> None:
+    missing = [n for n in names if not os.environ.get(n)]
+    if missing:
+        raise RuntimeError(f"Missing required env vars: {', '.join(missing)}")
+
+
+# Validate required environment early so failures are clearer
+_require_env_vars("MONGO_URL", "DB_NAME", "JWT_SECRET")
+
+mongo_url = os.environ.get("MONGO_URL")
+try:
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[os.environ.get("DB_NAME")]
+except Exception as exc:  # pragma: no cover - runtime environment issue
+    logger.exception("Failed to connect to MongoDB: %s", exc)
+    raise
 
 app = FastAPI(title="Amara Bali Villas API")
 api_router = APIRouter(prefix="/api")
@@ -206,8 +220,10 @@ def mock_send_confirmation_email(booking: Dict[str, Any]):
 
 
 def _stripe_client(host_url: str) -> StripeCheckout:
-    api_key = os.environ["STRIPE_API_KEY"]
-    webhook_url = f"{host_url}api/webhook/stripe"
+    api_key = os.environ.get("STRIPE_API_KEY")
+    if not api_key:
+        raise RuntimeError("STRIPE_API_KEY is not set in environment")
+    webhook_url = f"{host_url.rstrip('/')}/api/webhook/stripe"
     return StripeCheckout(api_key=api_key, webhook_url=webhook_url)
 
 
@@ -252,17 +268,34 @@ async def seed_admin():
 @app.on_event("startup")
 async def on_startup():
     await db.users.create_index("email", unique=True)
+    await db.login_events.create_index("user_id")
+    await db.login_events.create_index("login_at")
     await seed_database()
     await seed_admin()
 
 
 # ========== Auth ==========
 @api_router.post("/auth/login")
-async def login(payload: LoginPayload):
+async def login(request: Request, payload: LoginPayload):
     email = payload.email.lower()
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(payload.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    login_at = datetime.now(timezone.utc).isoformat()
+    login_event = {
+        "user_id": user["id"],
+        "email": user["email"],
+        "ip_address": request.client.host if request.client else "unknown",
+        "user_agent": request.headers.get("user-agent", ""),
+        "login_at": login_at,
+    }
+    await db.login_events.insert_one(login_event)
+    await db.users.update_one(
+        {"email": user["email"]},
+        {"$set": {"last_login": login_at}},
+    )
+
     token = create_access_token(user["id"], user["email"], user["role"])
     return {
         "access_token": token,
@@ -281,6 +314,39 @@ async def me(request: Request):
 @api_router.get("/")
 async def root():
     return {"message": "Amara Bali Villas API"}
+
+
+# Simple health-check for orchestration / load balancer probes and debugging
+@api_router.get("/health")
+async def health():
+    """Return a small JSON report about service health.
+
+    - verifies MongoDB `ping`
+    - reports presence of required env vars (JWT, STRIPE, DB)
+    """
+    db_status = "unknown"
+    try:
+        # AsyncIOMotorClient supports admin.command('ping')
+        await client.admin.command("ping")
+        db_status = "ok"
+    except Exception as exc:  # pragma: no cover - environment runtime
+        db_status = f"error: {exc}"
+
+    required = ["MONGO_URL", "DB_NAME", "JWT_SECRET"]
+    env_ok = {k: bool(os.environ.get(k)) for k in required}
+    optional = {"STRIPE_API_KEY": bool(os.environ.get("STRIPE_API_KEY"))}
+
+    all_ok = db_status == "ok" and all(env_ok.values())
+
+    return {
+        "service": "amara-backend",
+        "status": "ok" if all_ok else "degraded",
+        "checks": {
+            "db": db_status,
+            "env_required": env_ok,
+            "env_optional": optional,
+        },
+    }
 
 
 @api_router.get("/villas", response_model=List[Villa])
@@ -473,6 +539,13 @@ async def admin_stats(request: Request):
         "cancelled": by_status.get("cancelled", 0),
         "revenue": revenue,
     }
+
+
+@api_router.get("/admin/login-events")
+async def admin_login_events(request: Request, limit: int = 100):
+    await require_admin(request, db)
+    events = await db.login_events.find({}, {"_id": 0}).sort("login_at", -1).limit(limit).to_list(limit)
+    return {"count": len(events), "events": events}
 
 
 @api_router.patch("/admin/bookings/{booking_id}")
@@ -830,7 +903,7 @@ app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+    allow_origins=[o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()],
     allow_methods=["*"],
     allow_headers=["*"],
 )
