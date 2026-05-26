@@ -70,6 +70,62 @@ class BlogPost(BaseModel):
     author: str; author_role: str; read_time: int; date: str; content: str
 
 
+class ExperienceCreatePayload(BaseModel):
+    id: Optional[str] = None
+    name: str
+    description: str
+    image: str
+    price_from: float
+
+
+class ExperienceUpdatePayload(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    image: Optional[str] = None
+    price_from: Optional[float] = None
+
+
+class TestimonialCreatePayload(BaseModel):
+    name: str
+    country: str
+    rating: int
+    photo: str
+    review: str
+
+
+class TestimonialUpdatePayload(BaseModel):
+    name: Optional[str] = None
+    country: Optional[str] = None
+    rating: Optional[int] = None
+    photo: Optional[str] = None
+    review: Optional[str] = None
+
+
+class BlogPostCreatePayload(BaseModel):
+    slug: str
+    title: str
+    category: str
+    excerpt: str
+    cover: str
+    author: str
+    author_role: str
+    read_time: int
+    date: str
+    content: str
+
+
+class BlogPostUpdatePayload(BaseModel):
+    title: Optional[str] = None
+    category: Optional[str] = None
+    excerpt: Optional[str] = None
+    cover: Optional[str] = None
+    author: Optional[str] = None
+    author_role: Optional[str] = None
+    read_time: Optional[int] = None
+    date: Optional[str] = None
+    content: Optional[str] = None
+
+
 class BookingRequestPayload(BaseModel):
     villa_id: str
     check_in: str
@@ -299,6 +355,14 @@ async def list_experiences():
     return await db.experiences.find({}, {"_id": 0}).to_list(50)
 
 
+@api_router.get("/experiences/{experience_id}", response_model=Experience)
+async def get_experience(experience_id: str):
+    experience = await db.experiences.find_one({"id": experience_id}, {"_id": 0})
+    if not experience:
+        raise HTTPException(status_code=404, detail="Experience not found")
+    return experience
+
+
 @api_router.get("/testimonials", response_model=List[Testimonial])
 async def list_testimonials():
     return await db.testimonials.find({}, {"_id": 0}).to_list(50)
@@ -455,6 +519,121 @@ async def admin_create_payment_link(booking_id: str, request: Request):
     refreshed = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
     mock_send_payment_link_email(refreshed, pay_url)
     return {"pay_url": pay_url, "booking": refreshed}
+
+
+# ========== Admin content management ==========
+@api_router.get("/admin/experiences", response_model=List[Experience])
+async def admin_list_experiences(request: Request):
+    await require_admin(request, db)
+    return await db.experiences.find({}, {"_id": 0}).to_list(200)
+
+
+@api_router.post("/admin/experiences", response_model=Experience)
+async def admin_create_experience(payload: ExperienceCreatePayload, request: Request):
+    await require_admin(request, db)
+    experience = payload.model_dump()
+    experience_id = experience.get("id") or experience["name"].lower().replace(" ", "-")
+    experience["id"] = experience_id
+    if await db.experiences.find_one({"id": experience_id}):
+        raise HTTPException(status_code=400, detail="Experience already exists")
+    await db.experiences.insert_one(experience)
+    return experience
+
+
+@api_router.patch("/admin/experiences/{experience_id}", response_model=Experience)
+async def admin_update_experience(experience_id: str, payload: ExperienceUpdatePayload, request: Request):
+    await require_admin(request, db)
+    update = payload.model_dump(exclude_unset=True)
+    if not update:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    experience = await db.experiences.find_one({"id": experience_id}, {"_id": 0})
+    if not experience:
+        raise HTTPException(status_code=404, detail="Experience not found")
+    await db.experiences.update_one({"id": experience_id}, {"$set": update})
+    return {**experience, **update}
+
+
+@api_router.delete("/admin/experiences/{experience_id}")
+async def admin_delete_experience(experience_id: str, request: Request):
+    await require_admin(request, db)
+    result = await db.experiences.delete_one({"id": experience_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Experience not found")
+    return {"deleted": True}
+
+
+@api_router.get("/admin/testimonials", response_model=List[Testimonial])
+async def admin_list_testimonials(request: Request):
+    await require_admin(request, db)
+    return await db.testimonials.find({}, {"_id": 0}).to_list(200)
+
+
+@api_router.post("/admin/testimonials", response_model=Testimonial)
+async def admin_create_testimonial(payload: TestimonialCreatePayload, request: Request):
+    await require_admin(request, db)
+    testimonial = payload.model_dump()
+    await db.testimonials.insert_one(testimonial)
+    return testimonial
+
+
+@api_router.patch("/admin/testimonials/{name}", response_model=Testimonial)
+async def admin_update_testimonial(name: str, payload: TestimonialUpdatePayload, request: Request):
+    await require_admin(request, db)
+    update = payload.model_dump(exclude_unset=True)
+    if not update:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    testimonial = await db.testimonials.find_one({"name": name}, {"_id": 0})
+    if not testimonial:
+        raise HTTPException(status_code=404, detail="Testimonial not found")
+    await db.testimonials.update_one({"name": name}, {"$set": update})
+    return {**testimonial, **update}
+
+
+@api_router.delete("/admin/testimonials/{name}")
+async def admin_delete_testimonial(name: str, request: Request):
+    await require_admin(request, db)
+    result = await db.testimonials.delete_one({"name": name})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Testimonial not found")
+    return {"deleted": True}
+
+
+@api_router.get("/admin/blog", response_model=List[BlogPost])
+async def admin_list_blog_posts(request: Request):
+    await require_admin(request, db)
+    return await db.blog_posts.find({}, {"_id": 0}).sort("date", -1).to_list(200)
+
+
+@api_router.post("/admin/blog", response_model=BlogPost)
+async def admin_create_blog_post(payload: BlogPostCreatePayload, request: Request):
+    await require_admin(request, db)
+    if await db.blog_posts.find_one({"slug": payload.slug}):
+        raise HTTPException(status_code=400, detail="Blog post already exists")
+    post = payload.model_dump()
+    await db.blog_posts.insert_one(post)
+    return post
+
+
+@api_router.patch("/admin/blog/{slug}", response_model=BlogPost)
+async def admin_update_blog_post(slug: str, payload: BlogPostUpdatePayload, request: Request):
+    await require_admin(request, db)
+    update = payload.model_dump(exclude_unset=True)
+    if not update:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    post = await db.blog_posts.find_one({"slug": slug}, {"_id": 0})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    await db.blog_posts.update_one({"slug": slug}, {"$set": update})
+    return {**post, **update}
+
+
+@api_router.delete("/admin/blog/{slug}")
+async def admin_delete_blog_post(slug: str, request: Request):
+    await require_admin(request, db)
+    result = await db.blog_posts.delete_one({"slug": slug})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return {"deleted": True}
 
 
 # ========== Public payment landing ==========

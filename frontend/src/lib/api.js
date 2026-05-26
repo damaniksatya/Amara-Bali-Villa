@@ -26,9 +26,26 @@ export const fetchRelatedVillas = (slug) => client.get(`/villas/${slug}/related`
 export const fetchCategories = () => client.get("/categories").then((r) => r.data);
 export const fetchDestinations = () => client.get("/destinations").then((r) => r.data);
 export const fetchExperiences = () => client.get("/experiences").then((r) => r.data);
+export const fetchExperience = (id) => client.get(`/experiences/${id}`).then((r) => r.data);
 export const fetchTestimonials = () => client.get("/testimonials").then((r) => r.data);
 export const fetchBlog = (params = {}) => client.get("/blog", { params }).then((r) => r.data);
 export const fetchBlogPost = (slug) => client.get(`/blog/${slug}`).then((r) => r.data);
+
+// Admin content
+export const adminListExperiences = () => client.get("/admin/experiences").then((r) => r.data);
+export const adminCreateExperience = (data) => client.post("/admin/experiences", data).then((r) => r.data);
+export const adminUpdateExperience = (id, data) => client.patch(`/admin/experiences/${id}`, data).then((r) => r.data);
+export const adminDeleteExperience = (id) => client.delete(`/admin/experiences/${id}`).then((r) => r.data);
+
+export const adminListTestimonials = () => client.get("/admin/testimonials").then((r) => r.data);
+export const adminCreateTestimonial = (data) => client.post("/admin/testimonials", data).then((r) => r.data);
+export const adminUpdateTestimonial = (name, data) => client.patch(`/admin/testimonials/${encodeURIComponent(name)}`, data).then((r) => r.data);
+export const adminDeleteTestimonial = (name) => client.delete(`/admin/testimonials/${encodeURIComponent(name)}`).then((r) => r.data);
+
+export const adminListBlogPosts = () => client.get("/admin/blog").then((r) => r.data);
+export const adminCreateBlogPost = (data) => client.post("/admin/blog", data).then((r) => r.data);
+export const adminUpdateBlogPost = (slug, data) => client.patch(`/admin/blog/${slug}`, data).then((r) => r.data);
+export const adminDeleteBlogPost = (slug) => client.delete(`/admin/blog/${slug}`).then((r) => r.data);
 
 // Booking requests
 export const createBookingRequest = (data) => client.post("/bookings", data).then((r) => r.data);

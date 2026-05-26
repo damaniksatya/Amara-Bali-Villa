@@ -132,6 +132,9 @@ export default function AdminDashboard() {
             <span className="text-[10px] uppercase tracking-[0.32em] text-[#D4AF37]">Concierge Console</span>
           </div>
           <div className="flex items-center gap-5">
+            <Link to="/admin/content" className="text-xs uppercase tracking-[0.28em] text-[#1A1A1A]/60 hover:text-[#1A1A1A]">
+              Content editor
+            </Link>
             <span className="hidden sm:inline text-xs text-[#1A1A1A]/60">{admin.email}</span>
             <button onClick={logout} data-testid="admin-logout" className="text-xs uppercase tracking-[0.28em] text-[#1A1A1A]/60 hover:text-[#1A1A1A] inline-flex items-center gap-2">
               <LogOut size={13} /> Sign out

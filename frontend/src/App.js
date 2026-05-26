@@ -14,11 +14,13 @@ import PayBooking from "./pages/PayBooking";
 import BookingSuccess from "./pages/BookingSuccess";
 import About from "./pages/About";
 import Experiences from "./pages/Experiences";
+import ExperienceDetail from "./pages/ExperienceDetail";
 import Blog from "./pages/Blog";
 import BlogDetail from "./pages/BlogDetail";
 import Contact from "./pages/Contact";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminContent from "./pages/AdminContent";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -66,11 +68,13 @@ function App() {
           <Route path="/pay/:id" element={<PayBooking />} />
           <Route path="/about" element={<About />} />
           <Route path="/experiences" element={<Experiences />} />
+          <Route path="/experiences/:id" element={<ExperienceDetail />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:slug" element={<BlogDetail />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/content" element={<AdminContent />} />
         </Routes>
       </ChromeShell>
     </BrowserRouter>
