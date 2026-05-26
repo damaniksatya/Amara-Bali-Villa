@@ -1,70 +1,92 @@
-# Getting Started with Create React App
+# Frontend Documentation
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Frontend Amara Bali Villa dibangun dengan React, Tailwind CSS, dan CRACO.
+Aplikasi ini menggunakan API backend untuk katalog villa, pengalaman, blog, booking, dan admin.
 
-## Available Scripts
+## Persyaratan
 
-In the project directory, you can run:
+- Node.js 18+ atau versi yang kompatibel
+- Yarn 1.x
+- Backend FastAPI berjalan dan dapat diakses dari frontend
 
-### `npm start`
+## Setup
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+1. Masuk ke direktori frontend:
+   ```bash
+   cd frontend
+   ```
+2. Instal dependensi:
+   ```bash
+   yarn install
+   ```
+3. Buat file `.env` pada `frontend/`:
+   ```env
+   REACT_APP_BACKEND_URL=http://localhost:8000
+   ```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+`REACT_APP_BACKEND_URL` harus menunjuk ke host backend tanpa path `/api`.
 
-### `npm test`
+## Menjalankan Frontend
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Jalankan development server:
 
-### `npm run build`
+```bash
+yarn start
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Buka aplikasi di:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```text
+http://localhost:3000
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Build Produksi
 
-### `npm run eject`
+Untuk membuat bundle produksi:
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```bash
+yarn build
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Struktur Folder Utama
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+- `src/pages/` - halaman aplikasi seperti Home, Villas, Booking, Admin, Blog, dan Experience.
+- `src/components/` - komponen UI reusable.
+- `src/lib/api.js` - konfigurasi axios dan endpoint API.
+- `src/hooks/` - custom hooks aplikasi.
+- `public/` - aset statis dan `index.html`.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Integrasi API
 
-## Learn More
+Frontend menghubungi backend melalui `src/lib/api.js`.
+Beberapa fungsi API utama:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- `fetchVillas`, `fetchVilla`, `fetchRelatedVillas`
+- `fetchCategories`, `fetchDestinations`
+- `fetchExperiences`, `fetchExperience`
+- `fetchTestimonials`
+- `fetchBlog`, `fetchBlogPost`
+- `createBookingRequest`, `getBooking`
+- `fetchPayInfo`, `startPayCheckout`, `getCheckoutStatus`
+- `adminLogin`, `adminMe`, `adminListBookings`, `adminUpdateBooking`, `adminCreatePaymentLink`
+- `adminListExperiences`, `adminCreateExperience`, `adminUpdateExperience`, `adminDeleteExperience`
+- `adminListTestimonials`, `adminCreateTestimonial`, `adminUpdateTestimonial`, `adminDeleteTestimonial`
+- `adminListBlogPosts`, `adminCreateBlogPost`, `adminUpdateBlogPost`, `adminDeleteBlogPost`
+- `sendContact`, `subscribeNewsletter`
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Autentikasi Admin
 
-### Code Splitting
+Token admin disimpan di `localStorage` menggunakan kunci `amara_admin_token`.
+Interceptor axios di `src/lib/api.js` menambahkan header `Authorization: Bearer <token>` secara otomatis bila token tersedia.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Catatan Pengembangan
 
-### Analyzing the Bundle Size
+- Halaman login admin ada di `src/pages/AdminLogin.jsx`.
+- Dashboard admin ada di `src/pages/AdminDashboard.jsx`.
+- `src/components/` berisi komponen UI yang bisa disesuaikan untuk tema dan tampilan.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## Troubleshooting
 
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- Jika frontend belum terhubung ke backend, periksa nilai `REACT_APP_BACKEND_URL`.
+- Restart frontend setelah mengubah `.env`.
+- Pastikan backend berjalan dan CORS diizinkan jika host berbeda.
